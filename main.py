@@ -269,7 +269,7 @@ if not df.empty:
 
     fig_bar.update_layout(
         xaxis_tickangle=-45,
-        title="Total de Custos por Data"
+        title="Total de Custos por Data:"
     )
 
     st.plotly_chart(fig_bar, use_container_width=True)
