@@ -49,34 +49,43 @@ def init_db():
 
 
 def save_registro(dados):
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        cursor = conn.cursor()
 
-    cursor.execute("""
-        INSERT INTO registros (
-            latitude,
-            longitude,
-            data_hora,
-            preco_gasolina,
-            preco_etanol,
-            preco_diesel,
-            valor_calibragem
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, dados)
+        cursor.execute("""
+            INSERT INTO registros (
+                latitude,
+                longitude,
+                data_hora,
+                preco_gasolina,
+                preco_etanol,
+                preco_diesel,
+                valor_calibragem
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, dados)
 
-    conn.commit()
-    conn.close()
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        st.error(f"Erro ao salvar registro: {e}")
+        return False
 
 
 def get_registros():
-    conn = sqlite3.connect(DB_FILE)
-    df = pd.read_sql_query(
-        "SELECT * FROM registros ORDER BY id DESC",
-        conn
-    )
-    conn.close()
-    return df
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        df = pd.read_sql_query(
+            "SELECT * FROM registros ORDER BY id DESC",
+            conn
+        )
+        conn.close()
+        return df
+    except Exception as e:
+        st.error(f"Erro ao recuperar registros: {e}")
+        return pd.DataFrame()
 
 
 init_db()
@@ -103,7 +112,7 @@ with st.form("form_registro"):
     submit = st.form_submit_button("💾 Salvar Registro")
 
     if submit:
-        if loc and loc.get("latitude") and loc.get("longitude"):
+        if loc and loc.get("latitude") is not None and loc.get("longitude") is not None:
 
             tz = pytz.timezone("America/Sao_Paulo")
             agora = datetime.now(tz)
@@ -118,8 +127,8 @@ with st.form("form_registro"):
                 valor_calibragem
             )
 
-            save_registro(dados)
-            st.success("Registro salvo com sucesso!")
+            if save_registro(dados):
+                st.success("Registro salvo com sucesso!")
 
         else:
             st.warning("Permita o acesso à localização no navegador.")
@@ -235,22 +244,25 @@ if not df.empty:
         .reset_index()
     )
 
-    fig_pie = px.pie(
-        resumo_media,
-        names="tipo_custo",
-        values="valor",
-        hole=0.6,
-        template="plotly_dark",
-        color="tipo_custo",
-        color_discrete_map=cores
-    )
+    if not resumo_media.empty:
+        fig_pie = px.pie(
+            resumo_media,
+            names="tipo_custo",
+            values="valor",
+            hole=0.6,
+            template="plotly_dark",
+            color="tipo_custo",
+            color_discrete_map=cores
+        )
 
-    fig_pie.update_traces(
-        texttemplate="R$ %{value:.2f}",
-        textposition="inside"
-    )
+        fig_pie.update_traces(
+            texttemplate="R$ %{value:.2f}",
+            textposition="inside"
+        )
 
-    st.plotly_chart(fig_pie, use_container_width=True)
+        st.plotly_chart(fig_pie, use_container_width=True)
+    else:
+        st.info("Nenhum dado para exibir no gráfico de preço médio.")
 
     # --------------------------------------------------
     # BARRAS EMPILHADAS
@@ -263,28 +275,31 @@ if not df.empty:
         .reset_index()
     )
 
-    fig_bar = px.bar(
-        agrupado,
-        x="data",
-        y="valor",
-        color="tipo_custo",
-        barmode="stack",
-        template="plotly_dark",
-        text="valor",
-        color_discrete_map=cores
-    )
+    if not agrupado.empty:
+        fig_bar = px.bar(
+            agrupado,
+            x="data",
+            y="valor",
+            color="tipo_custo",
+            barmode="stack",
+            template="plotly_dark",
+            text="valor",
+            color_discrete_map=cores
+        )
 
-    fig_bar.update_traces(
-        texttemplate="R$ %{text:.2f}",
-        textposition="inside"
-    )
+        fig_bar.update_traces(
+            texttemplate="R$ %{text:.2f}",
+            textposition="inside"
+        )
 
-    fig_bar.update_layout(
-        xaxis_tickangle=-45,
-        title="Total de Custos por Data"
-    )
+        fig_bar.update_layout(
+            xaxis_tickangle=-45,
+            title="Total de Custos por Data"
+        )
 
-    st.plotly_chart(fig_bar, use_container_width=True)
+        st.plotly_chart(fig_bar, use_container_width=True)
+    else:
+        st.info("Nenhum dado para exibir no gráfico de custos.")
 
     # --------------------------------------------------
     # TABELA
