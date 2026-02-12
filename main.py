@@ -137,7 +137,6 @@ if not df.empty:
     df["data_hora"] = pd.to_datetime(df["data_hora"])
     df["data"] = df["data_hora"].dt.date
 
-    # TRANSFORMAÇÃO LONG
     df_long = df.melt(
         id_vars=["id", "latitude", "longitude", "data_hora", "data"],
         value_vars=[
@@ -170,7 +169,7 @@ if not df.empty:
     df_filtrado = df_long[df_long["tipo_custo"].isin(tipos)]
 
     # --------------------------------------------------
-    # MAPA INTERATIVO CORRIGIDO
+    # MAPA INTERATIVO PROFISSIONAL
     # --------------------------------------------------
     st.subheader("🛰 Mapa Interativo de Custos")
 
@@ -179,28 +178,38 @@ if not df.empty:
         centro_lat = df_filtrado["latitude"].mean()
         centro_lon = df_filtrado["longitude"].mean()
 
+        cores = {
+            "Gasolina": "#ff4b4b",
+            "Etanol": "#00cc96",
+            "Diesel": "#636efa",
+            "Calibragem": "#ffa600"
+        }
+
         fig_map = px.scatter_mapbox(
             df_filtrado,
             lat="latitude",
             lon="longitude",
             color="tipo_custo",
             size="valor",
-            size_max=30,
+            size_max=35,
             zoom=13,
             center={"lat": centro_lat, "lon": centro_lon},
-            template="plotly_dark",
-            custom_data=["valor", "data_hora"]
+            hover_name="tipo_custo",
+            hover_data={
+                "valor": ":.2f",
+                "data_hora": True,
+                "latitude": False,
+                "longitude": False
+            },
+            color_discrete_map=cores,
+            template="plotly_dark"
         )
 
         fig_map.update_traces(
             marker=dict(
-                opacity=0.85,
-                line=dict(width=1.5, color="white")
-            ),
-            hovertemplate=
-                "<b>%{marker.color}</b><br>" +
-                "💰 Valor: R$ %{customdata[0]:.2f}<br>" +
-                "🕒 %{customdata[1]}<extra></extra>"
+                opacity=0.9,
+                line=dict(width=2, color="white")
+            )
         )
 
         fig_map.update_layout(
@@ -216,7 +225,7 @@ if not df.empty:
         st.info("Nenhum dado para exibir no mapa.")
 
     # --------------------------------------------------
-    # GRÁFICO ROSCA
+    # GRÁFICO ROSCA - PREÇO MÉDIO
     # --------------------------------------------------
     st.subheader("💰 Preço Médio por Tipo")
 
@@ -231,7 +240,9 @@ if not df.empty:
         names="tipo_custo",
         values="valor",
         hole=0.6,
-        template="plotly_dark"
+        template="plotly_dark",
+        color="tipo_custo",
+        color_discrete_map=cores
     )
 
     fig_pie.update_traces(
@@ -259,7 +270,8 @@ if not df.empty:
         color="tipo_custo",
         barmode="stack",
         template="plotly_dark",
-        text="valor"
+        text="valor",
+        color_discrete_map=cores
     )
 
     fig_bar.update_traces(
@@ -269,7 +281,7 @@ if not df.empty:
 
     fig_bar.update_layout(
         xaxis_tickangle=-45,
-        title="Total de Custos por Data:"
+        title="Total de Custos por Data"
     )
 
     st.plotly_chart(fig_bar, use_container_width=True)
