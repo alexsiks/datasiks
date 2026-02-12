@@ -6,6 +6,8 @@ import pytz
 import sqlite3
 import os
 import plotly.express as px
+import numpy as np
+from math import radians, sin, cos, sqrt, atan2
 
 # --------------------------------------------------
 # CONFIGURAÇÃO STREAMLIT
@@ -79,6 +81,21 @@ def get_registros():
     return df
 
 
+# --------------------------------------------------
+# FUNÇÃO HAVERSINE (DISTÂNCIA KM)
+# --------------------------------------------------
+def calcular_distancia(lat1, lon1, lat2, lon2):
+    R = 6371  # raio da Terra em km
+
+    dlat = radians(lat2 - lat1)
+    dlon = radians(lon2 - lon1)
+
+    a = sin(dlat/2)**2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon/2)**2
+    c = 2 * atan2(sqrt(a), sqrt(1-a))
+
+    return R * c
+
+
 init_db()
 
 # --------------------------------------------------
@@ -128,7 +145,7 @@ with st.form("form_registro"):
 # DASHBOARD
 # --------------------------------------------------
 st.divider()
-st.subheader("📊 Análise Executiva")
+st.subheader("📊 Filtros")
 
 df = get_registros()
 
@@ -137,7 +154,56 @@ if not df.empty:
     df["data_hora"] = pd.to_datetime(df["data_hora"])
     df["data"] = df["data_hora"].dt.date
 
-    # Transformação para formato longo
+    # --------------------------------------------------
+    # FILTRO DE DATA
+    # --------------------------------------------------
+    col1, col2 = st.columns(2)
+
+    with col1:
+        data_inicial = st.date_input(
+            "Data Inicial",
+            value=df["data"].min()
+        )
+
+    with col2:
+        data_final = st.date_input(
+            "Data Final",
+            value=df["data"].max()
+        )
+
+    df = df[(df["data"] >= data_inicial) & (df["data"] <= data_final)]
+
+    # --------------------------------------------------
+    # FILTRO DE RAIO
+    # --------------------------------------------------
+    st.subheader("📍 Filtro por Localização")
+
+    raio_km = st.slider("Raio em KM", 1, 100, 10)
+
+    usar_localizacao = st.checkbox("Usar minha localização como centro")
+
+    if usar_localizacao and loc and loc.get("latitude"):
+
+        lat_user = loc["latitude"]
+        lon_user = loc["longitude"]
+
+        df["distancia_km"] = df.apply(
+            lambda row: calcular_distancia(
+                lat_user,
+                lon_user,
+                row["latitude"],
+                row["longitude"]
+            ),
+            axis=1
+        )
+
+        df = df[df["distancia_km"] <= raio_km]
+
+        st.success(f"Filtrando registros em até {raio_km} km")
+
+    # --------------------------------------------------
+    # TRANSFORMAÇÃO LONG
+    # --------------------------------------------------
     df_long = df.melt(
         id_vars=["id", "latitude", "longitude", "data_hora", "data"],
         value_vars=[
@@ -168,26 +234,18 @@ if not df.empty:
         "Calibragem": "#ffa600"
     }
 
-    tipos = st.multiselect(
-        "Filtrar Tipo de Custo",
-        df_long["tipo_custo"].unique(),
-        default=df_long["tipo_custo"].unique()
-    )
-
-    df_filtrado = df_long[df_long["tipo_custo"].isin(tipos)]
-
     # --------------------------------------------------
-    # MAPA (CORRIGIDO)
+    # MAPA
     # --------------------------------------------------
     st.subheader("🛰 Mapa de Custos")
 
-    if not df_filtrado.empty:
+    if not df_long.empty:
 
-        centro_lat = df_filtrado["latitude"].mean()
-        centro_lon = df_filtrado["longitude"].mean()
+        centro_lat = df_long["latitude"].mean()
+        centro_lon = df_long["longitude"].mean()
 
         fig_map = px.scatter_mapbox(
-            df_filtrado,
+            df_long,
             lat="latitude",
             lon="longitude",
             color="tipo_custo",
@@ -195,44 +253,31 @@ if not df.empty:
             size_max=30,
             zoom=12,
             center={"lat": centro_lat, "lon": centro_lon},
-            hover_name="tipo_custo",
             hover_data={
                 "valor": ":.2f",
-                "data_hora": True,
-                "latitude": False,
-                "longitude": False
+                "data_hora": True
             },
             color_discrete_map=cores,
             template="plotly_dark"
         )
 
-        # ❌ REMOVIDO marker.line (causava erro)
-
         fig_map.update_layout(
             mapbox_style="carto-darkmatter",
             margin=dict(l=0, r=0, t=40, b=0),
-            legend_title="Tipo de Custo",
-            title="Distribuição Geográfica dos Custos"
+            legend_title="Tipo de Custo"
         )
 
         st.plotly_chart(fig_map, use_container_width=True)
 
-    else:
-        st.info("Nenhum dado para exibir no mapa.")
-
     # --------------------------------------------------
-    # GRÁFICO ROSCA (MÉDIA)
+    # GRÁFICO ROSCA MÉDIA
     # --------------------------------------------------
     st.subheader("💰 Preço Médio por Tipo")
 
-    resumo_media = (
-        df_filtrado.groupby("tipo_custo")["valor"]
-        .mean()
-        .reset_index()
-    )
+    resumo = df_long.groupby("tipo_custo")["valor"].mean().reset_index()
 
     fig_pie = px.pie(
-        resumo_media,
+        resumo,
         names="tipo_custo",
         values="valor",
         hole=0.6,
@@ -246,22 +291,14 @@ if not df.empty:
         textposition="inside"
     )
 
-    fig_pie.update_layout(
-        title="Preço Médio por Tipo de Custo"
-    )
-
     st.plotly_chart(fig_pie, use_container_width=True)
 
     # --------------------------------------------------
-    # BARRAS EMPILHADAS POR DATA
+    # BARRAS EMPILHADAS
     # --------------------------------------------------
     st.subheader("📊 Custos por Data")
 
-    agrupado = (
-        df_filtrado.groupby(["data", "tipo_custo"])["valor"]
-        .sum()
-        .reset_index()
-    )
+    agrupado = df_long.groupby(["data", "tipo_custo"])["valor"].sum().reset_index()
 
     fig_bar = px.bar(
         agrupado,
@@ -279,11 +316,6 @@ if not df.empty:
         textposition="inside"
     )
 
-    fig_bar.update_layout(
-        xaxis_tickangle=-45,
-        title="Total de Custos por Data"
-    )
-
     st.plotly_chart(fig_bar, use_container_width=True)
 
     # --------------------------------------------------
@@ -291,9 +323,8 @@ if not df.empty:
     # --------------------------------------------------
     st.subheader("📄 Últimos 15 Registros")
 
-    tabela = df.sort_values("data_hora", ascending=False).head(15)
-
-    st.dataframe(tabela, use_container_width=True)
+    st.dataframe(df.sort_values("data_hora", ascending=False).head(15),
+                 use_container_width=True)
 
 else:
     st.info("Nenhum registro encontrado.")
