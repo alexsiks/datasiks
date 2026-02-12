@@ -1,22 +1,23 @@
 import streamlit as st
-from datetime import datetime, timedelta
+from datetime import datetime
 
 
-idade = st.number_input("Digite sua idade:", min_value=0, max_value=120, step=1)
+data_nascimento = st.date_input("Digite sua data de nascimento:")
+
+# Calcular idade
+hoje = datetime.now().date()
+idade = (hoje - data_nascimento).days // 365
 
 if idade >= 18:
     st.write("Você é maior de idade")
 else:
     st.write("Você é menor de idade")
 
-# Calcular data de nascimento
-hoje = datetime.now()
-data_nascimento = hoje - timedelta(days=idade*365)
-st.write(f"Sua data de nascimento aproximada: {data_nascimento.strftime('%d/%m/%Y')}")
+st.write(f"Sua idade: {idade} anos")
 
 anos_ate_maioridade = 18 - idade
 
-if anos_ate_maioridade >= 0:
+if anos_ate_maioridade > 0:
     st.write(f"Faltam {anos_ate_maioridade} anos para atingir a maioridade")
 else:
     st.write("Você já atingiu a maioridade")
