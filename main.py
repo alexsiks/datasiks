@@ -2,7 +2,7 @@ import streamlit as st
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
-# Separate inputs for day, month, and year
+# Separate inputs for day, month, and year.
 col1, col2, col3 = st.columns(3)
 
 with col1:
