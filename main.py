@@ -64,12 +64,13 @@ init_db()
 # --------------------------------------------------
 st.subheader("📍 Capturar Localização")
 
-if "latitude" not in st.session_state:
-    st.session_state.latitude = None
-    st.session_state.longitude = None
+if st.button("📍 Capturar Localização Atual"):
+    if "latitude" not in st.session_state:
+        st.session_state.latitude = None
+        st.session_state.longitude = None
 
 
-    if st.button("📍 Capturar Localização Atual"):
+        
         loc = streamlit_geolocation()
 
         if loc and loc.get("latitude") and loc.get("longitude"):
