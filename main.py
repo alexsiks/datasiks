@@ -69,24 +69,24 @@ if "latitude" not in st.session_state:
     st.session_state.longitude = None
 
 
+    if st.button("📍 Capturar Localização Atual"):
+        loc = streamlit_geolocation()
 
-loc = streamlit_geolocation()
+        if loc and loc.get("latitude") and loc.get("longitude"):
 
-if loc and loc.get("latitude") and loc.get("longitude"):
+            st.session_state.latitude = loc["latitude"]
+            st.session_state.longitude = loc["longitude"]
 
-    st.session_state.latitude = loc["latitude"]
-    st.session_state.longitude = loc["longitude"]
+            tz_brasilia = pytz.timezone("America/Sao_Paulo")
+            data_hora_brasilia = datetime.now(tz_brasilia).strftime("%d/%m/%Y %H:%M:%S")
 
-    tz_brasilia = pytz.timezone("America/Sao_Paulo")
-    data_hora_brasilia = datetime.now(tz_brasilia).strftime("%d/%m/%Y %H:%M:%S")
+            save_location(
+                st.session_state.latitude,
+                st.session_state.longitude,
+                data_hora_brasilia
+            )
 
-    save_location(
-        st.session_state.latitude,
-        st.session_state.longitude,
-        data_hora_brasilia
-    )
-
-    st.success("Localização capturada e salva com sucesso!")
+            st.success("Localização capturada e salva com sucesso!")
 
 
 # Mostrar localização atual
