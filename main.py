@@ -49,43 +49,34 @@ def init_db():
 
 
 def save_registro(dados):
-    try:
-        conn = sqlite3.connect(DB_FILE)
-        cursor = conn.cursor()
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.cursor()
 
-        cursor.execute("""
-            INSERT INTO registros (
-                latitude,
-                longitude,
-                data_hora,
-                preco_gasolina,
-                preco_etanol,
-                preco_diesel,
-                valor_calibragem
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, dados)
+    cursor.execute("""
+        INSERT INTO registros (
+            latitude,
+            longitude,
+            data_hora,
+            preco_gasolina,
+            preco_etanol,
+            preco_diesel,
+            valor_calibragem
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    """, dados)
 
-        conn.commit()
-        conn.close()
-        return True
-    except Exception as e:
-        st.error(f"Erro ao salvar registro: {e}")
-        return False
+    conn.commit()
+    conn.close()
 
 
 def get_registros():
-    try:
-        conn = sqlite3.connect(DB_FILE)
-        df = pd.read_sql_query(
-            "SELECT * FROM registros ORDER BY id DESC",
-            conn
-        )
-        conn.close()
-        return df
-    except Exception as e:
-        st.error(f"Erro ao recuperar registros: {e}")
-        return pd.DataFrame()
+    conn = sqlite3.connect(DB_FILE)
+    df = pd.read_sql_query(
+        "SELECT * FROM registros ORDER BY id DESC",
+        conn
+    )
+    conn.close()
+    return df
 
 
 init_db()
@@ -112,7 +103,7 @@ with st.form("form_registro"):
     submit = st.form_submit_button("💾 Salvar Registro")
 
     if submit:
-        if loc and loc.get("latitude") is not None and loc.get("longitude") is not None:
+        if loc and loc.get("latitude") and loc.get("longitude"):
 
             tz = pytz.timezone("America/Sao_Paulo")
             agora = datetime.now(tz)
@@ -127,8 +118,8 @@ with st.form("form_registro"):
                 valor_calibragem
             )
 
-            if save_registro(dados):
-                st.success("Registro salvo com sucesso!")
+            save_registro(dados)
+            st.success("Registro salvo com sucesso!")
 
         else:
             st.warning("Permita o acesso à localização no navegador.")
@@ -146,6 +137,7 @@ if not df.empty:
     df["data_hora"] = pd.to_datetime(df["data_hora"])
     df["data"] = df["data_hora"].dt.date
 
+    # Transformação para formato longo
     df_long = df.melt(
         id_vars=["id", "latitude", "longitude", "data_hora", "data"],
         value_vars=[
@@ -169,6 +161,13 @@ if not df.empty:
 
     df_long["tipo_custo"] = df_long["tipo_custo"].map(nomes)
 
+    cores = {
+        "Gasolina": "#ff4b4b",
+        "Etanol": "#00cc96",
+        "Diesel": "#636efa",
+        "Calibragem": "#ffa600"
+    }
+
     tipos = st.multiselect(
         "Filtrar Tipo de Custo",
         df_long["tipo_custo"].unique(),
@@ -178,21 +177,14 @@ if not df.empty:
     df_filtrado = df_long[df_long["tipo_custo"].isin(tipos)]
 
     # --------------------------------------------------
-    # MAPA INTERATIVO PROFISSIONAL
+    # MAPA (CORRIGIDO)
     # --------------------------------------------------
-    st.subheader("🛰 Mapa Interativo de Custos")
+    st.subheader("🛰 Mapa de Custos")
 
     if not df_filtrado.empty:
 
         centro_lat = df_filtrado["latitude"].mean()
         centro_lon = df_filtrado["longitude"].mean()
-
-        cores = {
-            "Gasolina": "#ff4b4b",
-            "Etanol": "#00cc96",
-            "Diesel": "#636efa",
-            "Calibragem": "#ffa600"
-        }
 
         fig_map = px.scatter_mapbox(
             df_filtrado,
@@ -200,8 +192,8 @@ if not df.empty:
             lon="longitude",
             color="tipo_custo",
             size="valor",
-            size_max=35,
-            zoom=13,
+            size_max=30,
+            zoom=12,
             center={"lat": centro_lat, "lon": centro_lon},
             hover_name="tipo_custo",
             hover_data={
@@ -214,12 +206,7 @@ if not df.empty:
             template="plotly_dark"
         )
 
-        fig_map.update_traces(
-            marker=dict(
-                opacity=0.9,
-                line=dict(width=2, color="white")
-            )
-        )
+        # ❌ REMOVIDO marker.line (causava erro)
 
         fig_map.update_layout(
             mapbox_style="carto-darkmatter",
@@ -234,7 +221,7 @@ if not df.empty:
         st.info("Nenhum dado para exibir no mapa.")
 
     # --------------------------------------------------
-    # GRÁFICO ROSCA - PREÇO MÉDIO
+    # GRÁFICO ROSCA (MÉDIA)
     # --------------------------------------------------
     st.subheader("💰 Preço Médio por Tipo")
 
@@ -244,30 +231,31 @@ if not df.empty:
         .reset_index()
     )
 
-    if not resumo_media.empty:
-        fig_pie = px.pie(
-            resumo_media,
-            names="tipo_custo",
-            values="valor",
-            hole=0.6,
-            template="plotly_dark",
-            color="tipo_custo",
-            color_discrete_map=cores
-        )
+    fig_pie = px.pie(
+        resumo_media,
+        names="tipo_custo",
+        values="valor",
+        hole=0.6,
+        template="plotly_dark",
+        color="tipo_custo",
+        color_discrete_map=cores
+    )
 
-        fig_pie.update_traces(
-            texttemplate="R$ %{value:.2f}",
-            textposition="inside"
-        )
+    fig_pie.update_traces(
+        texttemplate="R$ %{value:.2f}",
+        textposition="inside"
+    )
 
-        st.plotly_chart(fig_pie, use_container_width=True)
-    else:
-        st.info("Nenhum dado para exibir no gráfico de preço médio.")
+    fig_pie.update_layout(
+        title="Preço Médio por Tipo de Custo"
+    )
+
+    st.plotly_chart(fig_pie, use_container_width=True)
 
     # --------------------------------------------------
-    # BARRAS EMPILHADAS
+    # BARRAS EMPILHADAS POR DATA
     # --------------------------------------------------
-    st.subheader("📊 Custos Empilhados por Data")
+    st.subheader("📊 Custos por Data")
 
     agrupado = (
         df_filtrado.groupby(["data", "tipo_custo"])["valor"]
@@ -275,31 +263,28 @@ if not df.empty:
         .reset_index()
     )
 
-    if not agrupado.empty:
-        fig_bar = px.bar(
-            agrupado,
-            x="data",
-            y="valor",
-            color="tipo_custo",
-            barmode="stack",
-            template="plotly_dark",
-            text="valor",
-            color_discrete_map=cores
-        )
+    fig_bar = px.bar(
+        agrupado,
+        x="data",
+        y="valor",
+        color="tipo_custo",
+        barmode="stack",
+        template="plotly_dark",
+        text="valor",
+        color_discrete_map=cores
+    )
 
-        fig_bar.update_traces(
-            texttemplate="R$ %{text:.2f}",
-            textposition="inside"
-        )
+    fig_bar.update_traces(
+        texttemplate="R$ %{text:.2f}",
+        textposition="inside"
+    )
 
-        fig_bar.update_layout(
-            xaxis_tickangle=-45,
-            title="Total de Custos por Data"
-        )
+    fig_bar.update_layout(
+        xaxis_tickangle=-45,
+        title="Total de Custos por Data"
+    )
 
-        st.plotly_chart(fig_bar, use_container_width=True)
-    else:
-        st.info("Nenhum dado para exibir no gráfico de custos.")
+    st.plotly_chart(fig_bar, use_container_width=True)
 
     # --------------------------------------------------
     # TABELA
@@ -307,6 +292,7 @@ if not df.empty:
     st.subheader("📄 Últimos 15 Registros")
 
     tabela = df.sort_values("data_hora", ascending=False).head(15)
+
     st.dataframe(tabela, use_container_width=True)
 
 else:
