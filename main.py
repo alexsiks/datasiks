@@ -51,17 +51,14 @@ if loc:
     tz_brasilia = pytz.timezone('America/Sao_Paulo')
     data_hora_brasilia = datetime.now(tz_brasilia).strftime("%d/%m/%Y %H:%M:%S")
     
-    # Salvar localização no banco de dados
-    if st.button("Salvar Localização"):
-        save_location(loc['latitude'], loc['longitude'], data_hora_brasilia)
-        st.success("Localização salva com sucesso!")
-
     st.write(f"Latitude: {loc['latitude']}")
     st.write(f"Longitude: {loc['longitude']}")
     st.write(f'Data e hora da última atualização: {data_hora_brasilia}')
     
-
-
+    # Salvar localização no banco de dados
+    if st.button("Salvar Localização"):
+        save_location(loc['latitude'], loc['longitude'], data_hora_brasilia)
+        st.success("Localização salva com sucesso!")
 else:
     st.write("Aguardando permissão de geolocalização..")
 
