@@ -138,7 +138,7 @@ if not df.empty:
 
     st.pydeck_chart(pdk.Deck(
         layers=[layer],
-        initial_view_state=view_state],
+        initial_view_state=view_state,
         tooltip={"text": "Data: {data_hora}\nGasolina: R$ {preco_gasolina}"}
     ))
 
