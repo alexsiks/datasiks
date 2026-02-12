@@ -1,157 +1,121 @@
 import streamlit as st
 import pandas as pd
+from streamlit_geolocation import streamlit_geolocation
 from datetime import datetime
 import pytz
 import sqlite3
-import pydeck as pdk
-import requests
-from streamlit_geolocation import streamlit_geolocation
 
+# --------------------------------------------------
+# CONFIGURAÇÃO STREAMLIT
+# --------------------------------------------------
 st.set_page_config(layout="wide")
-st.title("⛽ Registro Automático de Localização")
+st.title("⛽ Preço Médio de Combustível por Localização")
 
-DB_FILE = "dados/raw/geolocation.db"
+# --------------------------------------------------
+# BANCO DE DADOS
+# --------------------------------------------------
+DB_FILE = "geolocation.db"
 
-# -----------------------------
-# FUNÇÃO GEOLOCALIZAÇÃO
-# -----------------------------
-def get_location():
-
-    loc = streamlit_geolocation()
-
-    if loc is None:
-        st.warning("Clique para autorizar a geolocalização.")
-        st.stop()
-
-    if not loc.get("latitude") or not loc.get("longitude"):
-        st.warning("Aguardando autorização de localização..")
-        st.stop()
-
-    return loc["latitude"], loc["longitude"]
-
-
-    
-
-# -----------------------------
-# BANCO
-# -----------------------------
 def init_db():
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
+
     c.execute('''
-        CREATE TABLE IF NOT EXISTS registros (
+        CREATE TABLE IF NOT EXISTS locations (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             latitude REAL,
             longitude REAL,
-            data_hora TEXT,
-            preco_gasolina REAL,
-            preco_alcool REAL,
-            preco_etanol REAL,
-            diesel REAL,
-            calibragem REAL
+            timestamp TEXT
         )
     ''')
+
     conn.commit()
     conn.close()
 
-def save_registro(dados):
+
+def save_location(latitude, longitude, timestamp):
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
-    c.execute("""
-        INSERT INTO registros 
-        (latitude, longitude, data_hora, preco_gasolina, preco_alcool, 
-         preco_etanol, diesel, calibragem)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    """, dados)
+
+    c.execute(
+        "INSERT INTO locations (latitude, longitude, timestamp) VALUES (?, ?, ?)",
+        (latitude, longitude, timestamp)
+    )
+
     conn.commit()
     conn.close()
 
-def get_registros():
+
+def get_locations():
     conn = sqlite3.connect(DB_FILE)
     df = pd.read_sql_query(
-        "SELECT * FROM registros ORDER BY id DESC",
+        "SELECT * FROM locations ORDER BY id DESC",
         conn
     )
     conn.close()
     return df
 
+
+# Inicializar banco
 init_db()
 
-# -----------------------------
-# FORMULÁRIO
-# -----------------------------
-st.subheader("⛽ Registrar Preços")
+# --------------------------------------------------
+# BOTÃO PARA PERMITIR LOCALIZAÇÃO
+# --------------------------------------------------
+st.subheader("📍 Capturar Localização")
 
-with st.form("form_registro"):
+if "latitude" not in st.session_state:
+    st.session_state.latitude = None
+    st.session_state.longitude = None
 
-    preco_gasolina = st.number_input("Preço Gasolina", min_value=0.0, step=0.01)
-    preco_alcool = st.number_input("Preço Álcool", min_value=0.0, step=0.01)
-    preco_etanol = st.number_input("Preço Etanol", min_value=0.0, step=0.01)
-    diesel = st.number_input("Preço Diesel", min_value=0.0, step=0.01)
-    calibragem = st.number_input("Calibragem Pneus", min_value=0.0, step=0.5)
+if st.button("📍 Permitir Localização"):
 
-    submit = st.form_submit_button("Salvar Registro")
+    loc = streamlit_geolocation()
 
-    if submit:
+    if loc and loc.get("latitude") and loc.get("longitude"):
 
-        latitude, longitude = get_location()
+        st.session_state.latitude = loc["latitude"]
+        st.session_state.longitude = loc["longitude"]
 
-        tz = pytz.timezone("America/Sao_Paulo")
-        data_hora = datetime.now(tz).strftime("%d/%m/%Y %H:%M:%S")
+        tz_brasilia = pytz.timezone("America/Sao_Paulo")
+        data_hora_brasilia = datetime.now(tz_brasilia).strftime("%d/%m/%Y %H:%M:%S")
 
-        dados = (
-            latitude,
-            longitude,
-            data_hora,
-            preco_gasolina,
-            preco_alcool,
-            preco_etanol,
-            diesel,
-            calibragem
+        save_location(
+            st.session_state.latitude,
+            st.session_state.longitude,
+            data_hora_brasilia
         )
 
-        save_registro(dados)
-        st.success(f"Registro salvo! 📍 ({latitude:.4f}, {longitude:.4f})")
+        st.success("Localização capturada e salva com sucesso!")
 
-# -----------------------------
+    else:
+        st.warning("Não foi possível obter a localização.")
+
+# Mostrar localização atual
+if st.session_state.latitude and st.session_state.longitude:
+    st.info(
+        f"Latitude: {st.session_state.latitude:.6f} | "
+        f"Longitude: {st.session_state.longitude:.6f}"
+    )
+
+# --------------------------------------------------
 # HISTÓRICO
-# -----------------------------
-st.subheader("📊 Histórico")
+# --------------------------------------------------
+st.subheader("📊 Histórico de Localizações")
 
-df = get_registros()
+df_locations = get_locations()
 
-if not df.empty:
-    st.dataframe(df, use_container_width=True)
+if not df_locations.empty:
 
-# -----------------------------
-# MAPA
-# -----------------------------
-st.subheader("🗺 Mapa")
+    st.dataframe(df_locations, use_container_width=True)
 
-if not df.empty:
+    # Preparar dados para mapa
+    map_data = pd.DataFrame({
+        "lat": df_locations["latitude"],
+        "lon": df_locations["longitude"]
+    })
 
-    layer = pdk.Layer(
-        "ScatterplotLayer",
-        data=df,
-        get_position='[longitude, latitude]',
-        get_radius=120,
-        get_fill_color=[0, 150, 255, 160],
-        pickable=True,
-    )
-
-    view_state = pdk.ViewState(
-        latitude=df.iloc[0]["latitude"],
-        longitude=df.iloc[0]["longitude"],
-        zoom=10
-    )
-
-    st.pydeck_chart(pdk.Deck(
-        layers=[layer],
-        initial_view_state=view_state,
-        tooltip={
-            "text": "Data: {data_hora}\nGasolina: R$ {preco_gasolina}"
-        }
-    ))
+    st.map(map_data, use_container_width=True, zoom=12)
 
 else:
-    st.info("Nenhum registro ainda.")
+    st.info("Nenhuma localização registrada ainda.")
