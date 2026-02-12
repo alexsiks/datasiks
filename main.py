@@ -15,4 +15,8 @@ data_nascimento = hoje - timedelta(days=idade*365)
 st.write(f"Sua data de nascimento aproximada: {data_nascimento.strftime('%d/%m/%Y')}")
 
 anos_ate_maioridade = 18 - idade
-st.write(f"Faltam {anos_ate_maioridade} anos para atingir a maioridade")
+
+if anos_ate_maioridade >= 0:
+    st.write(f"Faltam {anos_ate_maioridade} anos para atingir a maioridade")
+else:
+    st.write("Você já atingiu a maioridade")
