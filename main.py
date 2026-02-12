@@ -5,6 +5,7 @@ import pytz
 import sqlite3
 import pydeck as pdk
 import requests
+from streamlit_geolocation import streamlit_geolocation
 
 st.set_page_config(layout="wide")
 st.title("⛽ Registro Automático de Localização por IP")
@@ -15,12 +16,21 @@ DB_FILE = "geolocation.db"
 # FUNÇÃO GEO IP
 # -----------------------------
 def get_location_by_ip():
-    try:
-        response = requests.get("http://ip-api.com/json/")
-        data = response.json()
-        return data["lat"], data["lon"]
-    except:
-        return -14.2350, -51.9253  # fallback centro do Brasil
+        try:
+            # ----------------------------- # GEOLOCALIZAÇÃO # ----------------------------- 
+            loc = streamlit_geolocation() 
+            st.subheader("📍 Localização Atual") 
+            latitude = None 
+            longitude = None 
+            if loc and loc.get("latitude") and loc.get("longitude"): 
+                latitude = loc["latitude"] 
+                longitude = loc["longitude"] 
+                st.metric("Latitude", f"{latitude:.6f}") 
+                st.metric("Longitude", f"{longitude:.6f}") 
+            else: 
+                 st.warning("Permita acesso à localização.")
+        except:
+            return -14.2350, -51.9253  # fallback centro do Brasil
 
 # -----------------------------
 # BANCO
