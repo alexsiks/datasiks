@@ -12,7 +12,7 @@ st.title("⛽ Registro de Preços por Localização")
 DB_FILE = "geolocation.db"
 
 # -----------------------------
-# BANCO DE DADOS
+# BANCO
 # -----------------------------
 def init_db():
     conn = sqlite3.connect(DB_FILE)
@@ -61,7 +61,29 @@ init_db()
 # -----------------------------
 st.subheader("⛽ Registrar Preços")
 
+# Tenta capturar localização automaticamente (opcional)
+loc = streamlit_geolocation()
+
+lat_auto = loc["latitude"] if loc and loc.get("latitude") else 0.0
+lon_auto = loc["longitude"] if loc and loc.get("longitude") else 0.0
+
 with st.form("form_registro"):
+
+    st.markdown("### 📍 Localização")
+
+    latitude = st.number_input(
+        "Latitude",
+        value=float(lat_auto),
+        format="%.6f"
+    )
+
+    longitude = st.number_input(
+        "Longitude",
+        value=float(lon_auto),
+        format="%.6f"
+    )
+
+    st.markdown("### ⛽ Preços")
 
     preco_gasolina = st.number_input("Preço Gasolina", min_value=0.0, step=0.01)
     preco_alcool = st.number_input("Preço Álcool", min_value=0.0, step=0.01)
@@ -69,45 +91,31 @@ with st.form("form_registro"):
     diesel = st.number_input("Preço Diesel", min_value=0.0, step=0.01)
     calibragem = st.number_input("Calibragem Pneus", min_value=0.0, step=0.5)
 
-    submit = st.form_submit_button("📍 Capturar Localização e Salvar")
+    submit = st.form_submit_button("💾 Salvar Registro")
 
     if submit:
 
-        # Captura localização SOMENTE no clique
-        loc = streamlit_geolocation()
+        tz = pytz.timezone("America/Sao_Paulo")
+        data_hora = datetime.now(tz).strftime("%d/%m/%Y %H:%M:%S")
 
-        if loc and loc.get("latitude") and loc.get("longitude"):
+        dados = (
+            latitude,
+            longitude,
+            data_hora,
+            preco_gasolina,
+            preco_alcool,
+            preco_etanol,
+            diesel,
+            calibragem
+        )
 
-            latitude = loc["latitude"]
-            longitude = loc["longitude"]
-
-            tz = pytz.timezone("America/Sao_Paulo")
-            data_hora = datetime.now(tz).strftime("%d/%m/%Y %H:%M:%S")
-
-            dados = (
-                latitude,
-                longitude,
-                data_hora,
-                preco_gasolina,
-                preco_alcool,
-                preco_etanol,
-                diesel,
-                calibragem
-            )
-
-            save_registro(dados)
-
-            st.success("✅ Registro salvo com localização atual!")
-            st.write(f"Latitude: {latitude}")
-            st.write(f"Longitude: {longitude}")
-
-        else:
-            st.error("❌ Permita acesso à localização e tente novamente.")
+        save_registro(dados)
+        st.success("Registro salvo com sucesso!")
 
 # -----------------------------
 # HISTÓRICO
 # -----------------------------
-st.subheader("📊 Histórico de Registros")
+st.subheader("📊 Histórico")
 
 df = get_registros()
 
@@ -117,7 +125,7 @@ if not df.empty:
 # -----------------------------
 # MAPA
 # -----------------------------
-st.subheader("🗺 Mapa dos Registros")
+st.subheader("🗺 Mapa")
 
 if not df.empty:
 
@@ -150,6 +158,5 @@ Calibragem: {calibragem}
 """
         }
     ))
-
 else:
     st.info("Nenhum registro ainda.")
