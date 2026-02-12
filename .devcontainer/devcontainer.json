@@ -6,7 +6,8 @@
     "codespaces": {
       "openFiles": [
         "README.md",
-        "main.py"
+        "main.py",
+        "geolocation.db"
       ]
     },
     "vscode": {

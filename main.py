@@ -10,26 +10,27 @@ from streamlit_geolocation import streamlit_geolocation
 st.set_page_config(layout="wide")
 st.title("⛽ Registro Automático de Localização")
 
-DB_FILE = "geolocation.db"
+DB_FILE = "dados/raw/geolocation.db"
 
 # -----------------------------
 # FUNÇÃO GEOLOCALIZAÇÃO
 # -----------------------------
 def get_location():
 
-    # 1️⃣ Tenta GPS do navegador
     loc = streamlit_geolocation()
 
-    if loc and loc.get("latitude") and loc.get("longitude"):
-        return loc["latitude"], loc["longitude"]
+    if loc is None:
+        st.warning("Clique para autorizar a geolocalização.")
+        st.stop()
 
-    # 2️⃣ Fallback via IP
-    try:
-        response = requests.get("http://ip-api.com/json/", timeout=5)
-        data = response.json()
-        return data.get("lat", -14.2350), data.get("lon", -51.9253)
-    except:
-        return -14.2350, -51.9253  # Centro do Brasil
+    if not loc.get("latitude") or not loc.get("longitude"):
+        st.warning("Aguardando autorização de localização..")
+        st.stop()
+
+    return loc["latitude"], loc["longitude"]
+
+
+    
 
 # -----------------------------
 # BANCO
