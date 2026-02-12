@@ -46,7 +46,7 @@ init_db()
 loc = streamlit_geolocation()
 
 st.write("Sua localização:")
-if loc:
+if loc and loc.get('latitude') and loc.get('longitude'):
     # Obter data/hora em Brasília
     tz_brasilia = pytz.timezone('America/Sao_Paulo')
     data_hora_brasilia = datetime.now(tz_brasilia).strftime("%d/%m/%Y %H:%M:%S")
@@ -55,10 +55,9 @@ if loc:
     st.write(f"Longitude: {loc['longitude']}")
     st.write(f'Data e hora da última atualização: {data_hora_brasilia}')
     
-    # Salvar localização no banco de dados
-    if st.button("Salvar Localização"):
-        save_location(loc['latitude'], loc['longitude'], data_hora_brasilia)
-        st.success("Localização salva com sucesso!")
+    # Salvar automaticamente no banco de dados
+    save_location(loc['latitude'], loc['longitude'], data_hora_brasilia)
+    st.success("Localização salva automaticamente!")
 else:
     st.write("Aguardando permissão de geolocalização..")
 
@@ -67,13 +66,13 @@ st.subheader("Histórico de Localizações")
 df_locations = get_locations()
 
 if not df_locations.empty:
-    st.dataframe(df_locations)
+    st.dataframe(df_locations, use_container_width=True)
     
     # Preparar dados para o mapa
     map_data = pd.DataFrame({
         'lat': df_locations['latitude'],
         'lon': df_locations['longitude']
     })
-    st.map(map_data, use_container_width=True, zoom=15)
+    st.map(map_data, use_container_width=True, zoom=12)
 else:
     st.write("Nenhuma localização registrada ainda.")
