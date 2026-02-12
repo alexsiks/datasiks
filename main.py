@@ -1,5 +1,6 @@
 import streamlit as st
 from datetime import datetime
+from dateutil.relativedelta import relativedelta
 
 # Separate inputs for day, month, and year
 col1, col2, col3 = st.columns(3)
@@ -17,18 +18,20 @@ with col3:
 try:
     data_nascimento = datetime(int(ano), int(mes), int(dia)).date()
     
-    # Calcular idade
+    # Calcular idade corretamente
     hoje = datetime.now().date()
-    idade = (hoje - data_nascimento).days // 365
-    meses = (hoje - data_nascimento).days % 365 // 30
-    dias = (hoje - data_nascimento).days % 365 % 30
+    diferenca = relativedelta(hoje, data_nascimento)
+    
+    idade = diferenca.years
+    meses = diferenca.months
+    dias = diferenca.days
     
     if idade >= 18:
         st.write("Você é maior de idade")
     else:
         st.write("Você é menor de idade")
     
-    st.write(f"Sua idade: {idade} anos e {meses} meses e {dias} dias")
+    st.write(f"Sua idade: {idade} anos, {meses} meses e {dias} dias")
     
     anos_ate_maioridade = 18 - idade
     
