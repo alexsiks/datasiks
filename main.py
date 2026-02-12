@@ -1,7 +1,7 @@
 import streamlit as st
 
 
-idade=int(input("Insira a sua Idade:"))
+idade=st.number_input("Digite sua idade:", min_value=0, max_value=120, step=1)
 
 if idade >= 18:
     st.write("Você é maior de idade")
