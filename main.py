@@ -2,7 +2,7 @@ import streamlit as st
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
-st.title("Calculadora de Idade")
+st.title("Calculadora de Idade.")
 
 # Separate inputs for day, month, and year.
 col1, col2, col3 = st.columns(3)
@@ -44,3 +44,27 @@ try:
         
 except ValueError:
     st.error("Data inválida. Por favor, verifique os valores inseridos.")
+
+    # Simple login system
+    st.sidebar.title("Login")
+
+    username = st.sidebar.text_input("Usuário:")
+    password = st.sidebar.text_input("Senha:", type="password")
+
+    # Hardcoded credentials (replace with secure authentication in production)
+    valid_users = {"admin": "1234", "user": "senha"}
+
+    if st.sidebar.button("Entrar"):
+        if username in valid_users and valid_users[username] == password:
+            st.session_state.logged_in = True
+            st.sidebar.success("Login realizado!")
+        else:
+            st.sidebar.error("Usuário ou senha inválidos")
+
+    if st.session_state.get("logged_in", False):
+        st.sidebar.success(f"Bem-vindo, {username}!")
+        if st.sidebar.button("Sair"):
+            st.session_state.logged_in = False
+    else:
+        st.warning("Por favor, faça login para usar a calculadora")
+        st.stop()
