@@ -8,29 +8,28 @@ import requests
 from streamlit_geolocation import streamlit_geolocation
 
 st.set_page_config(layout="wide")
-st.title("⛽ Registro Automático de Localização por IP")
+st.title("⛽ Registro Automático de Localização")
 
 DB_FILE = "geolocation.db"
 
 # -----------------------------
-# FUNÇÃO GEO IP
+# FUNÇÃO GEOLOCALIZAÇÃO
 # -----------------------------
-def get_location_by_ip():
-        try:
-            # ----------------------------- # GEOLOCALIZAÇÃO # ----------------------------- 
-            loc = streamlit_geolocation() 
-            st.subheader("📍 Localização Atual") 
-            latitude = None 
-            longitude = None 
-            if loc and loc.get("latitude") and loc.get("longitude"): 
-                latitude = loc["latitude"] 
-                longitude = loc["longitude"] 
-                st.metric("Latitude", f"{latitude:.6f}") 
-                st.metric("Longitude", f"{longitude:.6f}") 
-            else: 
-                 st.warning("Permita acesso à localização.")
-        except:
-            return -14.2350, -51.9253  # fallback centro do Brasil
+def get_location():
+
+    # 1️⃣ Tenta GPS do navegador
+    loc = streamlit_geolocation()
+
+    if loc and loc.get("latitude") and loc.get("longitude"):
+        return loc["latitude"], loc["longitude"]
+
+    # 2️⃣ Fallback via IP
+    try:
+        response = requests.get("http://ip-api.com/json/", timeout=5)
+        data = response.json()
+        return data.get("lat", -14.2350), data.get("lon", -51.9253)
+    except:
+        return -14.2350, -51.9253  # Centro do Brasil
 
 # -----------------------------
 # BANCO
@@ -94,8 +93,7 @@ with st.form("form_registro"):
 
     if submit:
 
-        # Captura automática via IP (sem permissão)
-        latitude, longitude = get_location_by_ip()
+        latitude, longitude = get_location()
 
         tz = pytz.timezone("America/Sao_Paulo")
         data_hora = datetime.now(tz).strftime("%d/%m/%Y %H:%M:%S")
@@ -112,7 +110,7 @@ with st.form("form_registro"):
         )
 
         save_registro(dados)
-        st.success("Registro salvo automaticamente com localização por IP!")
+        st.success(f"Registro salvo! 📍 ({latitude:.4f}, {longitude:.4f})")
 
 # -----------------------------
 # HISTÓRICO
@@ -149,7 +147,9 @@ if not df.empty:
     st.pydeck_chart(pdk.Deck(
         layers=[layer],
         initial_view_state=view_state,
-        tooltip={"text": "Data: {data_hora}\nGasolina: R$ {preco_gasolina}"}
+        tooltip={
+            "text": "Data: {data_hora}\nGasolina: R$ {preco_gasolina}"
+        }
     ))
 
 else:
