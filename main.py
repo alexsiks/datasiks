@@ -21,7 +21,7 @@ st.title("🚗 Dashboard Executivo de Custos Automotivos")
 # CONFIGURAÇÃO BANCO
 # --------------------------------------------------
 BASE_DIR = os.getcwd()
-DB_DIR = os.path.join(BASE_DIR, "dados","raw")
+DB_DIR = os.path.join(BASE_DIR, "dados", "raw")
 os.makedirs(DB_DIR, exist_ok=True)
 
 DB_FILE = os.path.join(DB_DIR, "custos.db")
@@ -93,12 +93,12 @@ with st.form("form_registro"):
     col1, col2 = st.columns(2)
 
     with col1:
-        preco_gasolina = st.number_input("Preço Gasolina (R$)", min_value=0.0, step=0.01)
-        preco_etanol = st.number_input("Preço Etanol (R$)", min_value=0.0, step=0.01)
+        preco_gasolina = st.number_input("Preço Gasolina (R$)", 0.0, step=0.01)
+        preco_etanol = st.number_input("Preço Etanol (R$)", 0.0, step=0.01)
 
     with col2:
-        preco_diesel = st.number_input("Preço Diesel (R$)", min_value=0.0, step=0.01)
-        valor_calibragem = st.number_input("Valor Calibragem (R$)", min_value=0.0, step=0.50)
+        preco_diesel = st.number_input("Preço Diesel (R$)", 0.0, step=0.01)
+        valor_calibragem = st.number_input("Valor Calibragem (R$)", 0.0, step=0.50)
 
     submit = st.form_submit_button("💾 Salvar Registro")
 
@@ -137,21 +137,7 @@ if not df.empty:
     df["data_hora"] = pd.to_datetime(df["data_hora"])
     df["data"] = df["data_hora"].dt.date
 
-    # Filtro por data
-    min_data = df["data"].min()
-    max_data = df["data"].max()
-
-    data_range = st.date_input(
-        "Filtrar Período",
-        [min_data, max_data],
-        min_value=min_data,
-        max_value=max_data
-    )
-
-    if len(data_range) == 2:
-        df = df[(df["data"] >= data_range[0]) & (df["data"] <= data_range[1])]
-
-    # Transformação LONG
+    # TRANSFORMAÇÃO LONG
     df_long = df.melt(
         id_vars=["id", "latitude", "longitude", "data_hora", "data"],
         value_vars=[
@@ -184,67 +170,92 @@ if not df.empty:
     df_filtrado = df_long[df_long["tipo_custo"].isin(tipos)]
 
     # --------------------------------------------------
-    # MAPA + ROSCA
+    # MAPA SUPER INTERATIVO
     # --------------------------------------------------
-    col_map, col_pie = st.columns([3, 2])
+    st.subheader("🛰 Mapa Interativo de Custos")
 
-    with col_map:
+    if not df_filtrado.empty:
+
+        centro_lat = df_filtrado["latitude"].mean()
+        centro_lon = df_filtrado["longitude"].mean()
+
         fig_map = px.scatter_mapbox(
             df_filtrado,
             lat="latitude",
             lon="longitude",
             color="tipo_custo",
             size="valor",
-            size_max=25,
-            zoom=12,
+            size_max=30,
+            zoom=13,
+            center={"lat": centro_lat, "lon": centro_lon},
+            hover_name="tipo_custo",
             hover_data={
-                "tipo_custo": True,
                 "valor": ":.2f",
-                "data_hora": True
+                "data_hora": True,
+                "latitude": False,
+                "longitude": False
             },
+            animation_frame=df_filtrado["data"].astype(str),
             template="plotly_dark"
+        )
+
+        fig_map.update_traces(
+            marker=dict(
+                opacity=0.85,
+                line=dict(width=1.5, color="white")
+            ),
+            hovertemplate=
+                "<b>%{hovertext}</b><br>" +
+                "💰 Valor: R$ %{customdata[0]:.2f}<br>" +
+                "🕒 %{customdata[1]}<extra></extra>"
         )
 
         fig_map.update_layout(
             mapbox_style="carto-darkmatter",
-            title="🛰 Mapa de Custos",
-            margin=dict(l=0, r=0, t=50, b=0)
+            margin=dict(l=0, r=0, t=40, b=0),
+            legend_title="Tipo de Custo",
+            title="Distribuição Geográfica dos Custos"
         )
 
         st.plotly_chart(fig_map, use_container_width=True)
 
-    with col_pie:
-
-        resumo_media = (
-            df_filtrado.groupby("tipo_custo")["valor"]
-            .mean()
-            .reset_index()
-        )
-
-        fig_pie = px.pie(
-            resumo_media,
-            names="tipo_custo",
-            values="valor",
-            hole=0.6,
-            template="plotly_dark"
-        )
-
-        fig_pie.update_traces(
-            texttemplate="R$ %{value:.2f}",
-            textposition="inside"
-        )
-
-        fig_pie.update_layout(
-            title="💰 Preço Médio por Tipo",
-            showlegend=True
-        )
-
-        st.plotly_chart(fig_pie, use_container_width=True)
+    else:
+        st.info("Nenhum dado para exibir no mapa.")
 
     # --------------------------------------------------
-    # BARRAS EMPILHADAS COM VALOR
+    # GRÁFICO ROSCA (PREÇO MÉDIO)
     # --------------------------------------------------
-    st.divider()
+    st.subheader("💰 Preço Médio por Tipo")
+
+    resumo_media = (
+        df_filtrado.groupby("tipo_custo")["valor"]
+        .mean()
+        .reset_index()
+    )
+
+    fig_pie = px.pie(
+        resumo_media,
+        names="tipo_custo",
+        values="valor",
+        hole=0.6,
+        template="plotly_dark"
+    )
+
+    fig_pie.update_traces(
+        texttemplate="R$ %{value:.2f}",
+        textposition="inside"
+    )
+
+    fig_pie.update_layout(
+        title="Preço Médio por Tipo",
+        showlegend=True
+    )
+
+    st.plotly_chart(fig_pie, use_container_width=True)
+
+    # --------------------------------------------------
+    # BARRAS EMPILHADAS
+    # --------------------------------------------------
     st.subheader("📊 Custos Empilhados por Data")
 
     agrupado = (
@@ -260,12 +271,7 @@ if not df.empty:
         color="tipo_custo",
         barmode="stack",
         template="plotly_dark",
-        text="valor",
-        labels={
-            "data": "Data",
-            "valor": "Total (R$)",
-            "tipo_custo": "Tipo de Custo"
-        }
+        text="valor"
     )
 
     fig_bar.update_traces(
@@ -274,36 +280,16 @@ if not df.empty:
     )
 
     fig_bar.update_layout(
-        title="Total de Custos por Data",
-        xaxis_tickangle=-45
+        xaxis_tickangle=-45,
+        title="Total de Custos por Data"
     )
 
     st.plotly_chart(fig_bar, use_container_width=True)
 
     # --------------------------------------------------
-    # MÉTRICAS
-    # --------------------------------------------------
-    st.divider()
-
-    col1, col2, col3, col4 = st.columns(4)
-
-    for col, tipo, icon in zip(
-        [col1, col2, col3, col4],
-        ["Gasolina", "Etanol", "Diesel", "Calibragem"],
-        ["⛽", "🌱", "🚛", "🛞"]
-    ):
-        if tipo in tipos:
-            media = df_filtrado[df_filtrado["tipo_custo"] == tipo]["valor"].mean()
-            col.metric(f"{icon} {tipo}", f"R$ {media:.2f}")
-        else:
-            col.metric(f"{icon} {tipo}", "-")
-
-    # --------------------------------------------------
     # TABELA
     # --------------------------------------------------
-    st.divider()
     st.subheader("📄 Últimos 15 Registros")
-
     tabela = df.sort_values("data_hora", ascending=False).head(15)
     st.dataframe(tabela, use_container_width=True)
 
