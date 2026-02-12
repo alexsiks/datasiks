@@ -57,26 +57,7 @@ def get_registros():
 init_db()
 
 # -----------------------------
-# GEOLOCALIZAÇÃO
-# -----------------------------
-loc = streamlit_geolocation()
-
-st.subheader("📍 Localização Atual")
-
-latitude = None
-longitude = None
-
-if loc and loc.get("latitude") and loc.get("longitude"):
-    latitude = loc["latitude"]
-    longitude = loc["longitude"]
-
-    st.metric("Latitude", f"{latitude:.6f}")
-    st.metric("Longitude", f"{longitude:.6f}")
-else:
-    st.warning("Permita acesso à localização.")
-
-# -----------------------------
-# FORMULÁRIO DE REGISTRO
+# FORMULÁRIO
 # -----------------------------
 st.subheader("⛽ Registrar Preços")
 
@@ -88,10 +69,18 @@ with st.form("form_registro"):
     diesel = st.number_input("Preço Diesel", min_value=0.0, step=0.01)
     calibragem = st.number_input("Calibragem Pneus", min_value=0.0, step=0.5)
 
-    submit = st.form_submit_button("Salvar Registro")
+    submit = st.form_submit_button("📍 Capturar Localização e Salvar")
 
     if submit:
-        if latitude and longitude:
+
+        # Captura localização SOMENTE no clique
+        loc = streamlit_geolocation()
+
+        if loc and loc.get("latitude") and loc.get("longitude"):
+
+            latitude = loc["latitude"]
+            longitude = loc["longitude"]
+
             tz = pytz.timezone("America/Sao_Paulo")
             data_hora = datetime.now(tz).strftime("%d/%m/%Y %H:%M:%S")
 
@@ -107,9 +96,13 @@ with st.form("form_registro"):
             )
 
             save_registro(dados)
-            st.success("Registro salvo com sucesso!")
+
+            st.success("✅ Registro salvo com localização atual!")
+            st.write(f"Latitude: {latitude}")
+            st.write(f"Longitude: {longitude}")
+
         else:
-            st.error("Localização não disponível.")
+            st.error("❌ Permita acesso à localização e tente novamente.")
 
 # -----------------------------
 # HISTÓRICO
