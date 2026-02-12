@@ -1,15 +1,26 @@
 import streamlit as st
 import pandas as pd
-from streamlit_geolocation import streamlit_geolocation
 from datetime import datetime
 import pytz
 import sqlite3
 import pydeck as pdk
+import requests
 
 st.set_page_config(layout="wide")
-st.title("⛽ Registro de Preços por Localização")
+st.title("⛽ Registro Automático de Localização por IP")
 
 DB_FILE = "geolocation.db"
+
+# -----------------------------
+# FUNÇÃO GEO IP
+# -----------------------------
+def get_location_by_ip():
+    try:
+        response = requests.get("http://ip-api.com/json/")
+        data = response.json()
+        return data["lat"], data["lon"]
+    except:
+        return -14.2350, -51.9253  # fallback centro do Brasil
 
 # -----------------------------
 # BANCO
@@ -61,29 +72,7 @@ init_db()
 # -----------------------------
 st.subheader("⛽ Registrar Preços")
 
-# Tenta capturar localização automaticamente (opcional)
-loc = streamlit_geolocation()
-
-lat_auto = loc["latitude"] if loc and loc.get("latitude") else 0.0
-lon_auto = loc["longitude"] if loc and loc.get("longitude") else 0.0
-
 with st.form("form_registro"):
-
-    st.markdown("### 📍 Localização")
-
-    latitude = st.number_input(
-        "Latitude",
-        value=float(lat_auto),
-        format="%.6f"
-    )
-
-    longitude = st.number_input(
-        "Longitude",
-        value=float(lon_auto),
-        format="%.6f"
-    )
-
-    st.markdown("### ⛽ Preços")
 
     preco_gasolina = st.number_input("Preço Gasolina", min_value=0.0, step=0.01)
     preco_alcool = st.number_input("Preço Álcool", min_value=0.0, step=0.01)
@@ -91,9 +80,12 @@ with st.form("form_registro"):
     diesel = st.number_input("Preço Diesel", min_value=0.0, step=0.01)
     calibragem = st.number_input("Calibragem Pneus", min_value=0.0, step=0.5)
 
-    submit = st.form_submit_button("💾 Salvar Registro")
+    submit = st.form_submit_button("Salvar Registro")
 
     if submit:
+
+        # Captura automática via IP (sem permissão)
+        latitude, longitude = get_location_by_ip()
 
         tz = pytz.timezone("America/Sao_Paulo")
         data_hora = datetime.now(tz).strftime("%d/%m/%Y %H:%M:%S")
@@ -110,7 +102,7 @@ with st.form("form_registro"):
         )
 
         save_registro(dados)
-        st.success("Registro salvo com sucesso!")
+        st.success("Registro salvo automaticamente com localização por IP!")
 
 # -----------------------------
 # HISTÓRICO
@@ -141,22 +133,14 @@ if not df.empty:
     view_state = pdk.ViewState(
         latitude=df.iloc[0]["latitude"],
         longitude=df.iloc[0]["longitude"],
-        zoom=12
+        zoom=10
     )
 
     st.pydeck_chart(pdk.Deck(
         layers=[layer],
-        initial_view_state=view_state,
-        tooltip={
-            "text": """
-Data: {data_hora}
-Gasolina: R$ {preco_gasolina}
-Álcool: R$ {preco_alcool}
-Etanol: R$ {preco_etanol}
-Diesel: R$ {diesel}
-Calibragem: {calibragem}
-"""
-        }
+        initial_view_state=view_state],
+        tooltip={"text": "Data: {data_hora}\nGasolina: R$ {preco_gasolina}"}
     ))
+
 else:
     st.info("Nenhum registro ainda.")
