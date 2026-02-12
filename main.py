@@ -21,13 +21,14 @@ try:
     hoje = datetime.now().date()
     idade = (hoje - data_nascimento).days // 365
     meses = (hoje - data_nascimento).days % 365 // 30
+    dias = (hoje - data_nascimento).days % 365 % 30
     
     if idade >= 18:
         st.write("Você é maior de idade")
     else:
         st.write("Você é menor de idade")
     
-    st.write(f"Sua idade: {idade} anos e {meses} meses")
+    st.write(f"Sua idade: {idade} anos e {meses} meses e {dias} dias")
     
     anos_ate_maioridade = 18 - idade
     
