@@ -170,7 +170,7 @@ if not df.empty:
     df_filtrado = df_long[df_long["tipo_custo"].isin(tipos)]
 
     # --------------------------------------------------
-    # MAPA SUPER INTERATIVO
+    # MAPA INTERATIVO CORRIGIDO
     # --------------------------------------------------
     st.subheader("🛰 Mapa Interativo de Custos")
 
@@ -188,15 +188,8 @@ if not df.empty:
             size_max=30,
             zoom=13,
             center={"lat": centro_lat, "lon": centro_lon},
-            hover_name="tipo_custo",
-            hover_data={
-                "valor": ":.2f",
-                "data_hora": True,
-                "latitude": False,
-                "longitude": False
-            },
-            animation_frame=df_filtrado["data"].astype(str),
-            template="plotly_dark"
+            template="plotly_dark",
+            custom_data=["valor", "data_hora"]
         )
 
         fig_map.update_traces(
@@ -205,7 +198,7 @@ if not df.empty:
                 line=dict(width=1.5, color="white")
             ),
             hovertemplate=
-                "<b>%{hovertext}</b><br>" +
+                "<b>%{marker.color}</b><br>" +
                 "💰 Valor: R$ %{customdata[0]:.2f}<br>" +
                 "🕒 %{customdata[1]}<extra></extra>"
         )
@@ -223,7 +216,7 @@ if not df.empty:
         st.info("Nenhum dado para exibir no mapa.")
 
     # --------------------------------------------------
-    # GRÁFICO ROSCA (PREÇO MÉDIO)
+    # GRÁFICO ROSCA
     # --------------------------------------------------
     st.subheader("💰 Preço Médio por Tipo")
 
@@ -244,11 +237,6 @@ if not df.empty:
     fig_pie.update_traces(
         texttemplate="R$ %{value:.2f}",
         textposition="inside"
-    )
-
-    fig_pie.update_layout(
-        title="Preço Médio por Tipo",
-        showlegend=True
     )
 
     st.plotly_chart(fig_pie, use_container_width=True)
@@ -290,6 +278,7 @@ if not df.empty:
     # TABELA
     # --------------------------------------------------
     st.subheader("📄 Últimos 15 Registros")
+
     tabela = df.sort_values("data_hora", ascending=False).head(15)
     st.dataframe(tabela, use_container_width=True)
 
