@@ -68,28 +68,26 @@ if "latitude" not in st.session_state:
     st.session_state.latitude = None
     st.session_state.longitude = None
 
-if st.button("📍 Permitir Localização"):
 
-    loc = streamlit_geolocation()
 
-    if loc and loc.get("latitude") and loc.get("longitude"):
+loc = streamlit_geolocation()
 
-        st.session_state.latitude = loc["latitude"]
-        st.session_state.longitude = loc["longitude"]
+if loc and loc.get("latitude") and loc.get("longitude"):
 
-        tz_brasilia = pytz.timezone("America/Sao_Paulo")
-        data_hora_brasilia = datetime.now(tz_brasilia).strftime("%d/%m/%Y %H:%M:%S")
+    st.session_state.latitude = loc["latitude"]
+    st.session_state.longitude = loc["longitude"]
 
-        save_location(
-            st.session_state.latitude,
-            st.session_state.longitude,
-            data_hora_brasilia
-        )
+    tz_brasilia = pytz.timezone("America/Sao_Paulo")
+    data_hora_brasilia = datetime.now(tz_brasilia).strftime("%d/%m/%Y %H:%M:%S")
 
-        st.success("Localização capturada e salva com sucesso!")
+    save_location(
+        st.session_state.latitude,
+        st.session_state.longitude,
+        data_hora_brasilia
+    )
 
-    else:
-        st.warning("Não foi possível obter a localização.")
+    st.success("Localização capturada e salva com sucesso!")
+
 
 # Mostrar localização atual
 if st.session_state.latitude and st.session_state.longitude:
