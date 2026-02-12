@@ -11,4 +11,4 @@ if loc:
     st.write(f"Longitude: {loc['coords']['longitude']}")
     st.map(data=None, zoom=None, use_container_width=True)
 else:
-    st.write("Aguardando permissão de geolocalização...")
+    st.write("Aguardando permissão de geolocalização..")
